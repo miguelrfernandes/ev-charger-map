@@ -10,6 +10,7 @@ dependencies = [
     "ydata-profiling>=4.8,<5",
     "setuptools>=68,<76",
     "marimo>=0.7,<0.8",
+    "openpyxl>=3.1.5",
 ]
 
 [project.scripts]

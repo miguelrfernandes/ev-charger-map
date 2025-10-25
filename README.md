@@ -16,6 +16,15 @@ This repository documents the workflow for analysing EV charging infrastructure 
 4. **Charger characteristics:** Are chargers under/over-utilised relative to capacity and nearby demand? Are there patterns by charger type?
 5. **Data quality:** What issues (missing fields, duplicates, inconsistent geocodes) could affect the analysis, and how will we resolve them?
 
+## How to run
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+uv sync
+source .venv/bin/activate
+marimo edit
+```
+
 ## Dataset Overview
 
 | Dataset                                            | Provider                       | Format                  | Approx Size                          | Purpose                                                   |
@@ -27,12 +36,6 @@ This repository documents the workflow for analysing EV charging infrastructure 
 | (Optional) Socio-demographic indicators            | INE or dados.cm-lisboa.pt      | CSV                     | Parish-level population, EV adoption | Normalise charger counts by population/EV adoption        |
 
 Set up the environment with uv (installs dependencies from `pyproject.toml` and exposes console scripts):
-
-```bash
-uv sync
-source .venv/bin/activate
-marimo edit
-```
 
 ## Other Resources to Explore
 
