@@ -6,6 +6,7 @@ import argparse
 import json
 import logging
 import sys
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any, Dict, List, Tuple, TYPE_CHECKING
 
@@ -29,6 +30,24 @@ _PTYPES = None
 
 LOGGER = logging.getLogger(__name__)
 SUPPORTED_FORMATS = {"geojson", "opendatasoft", "csv", "json"}
+
+
+def make_json_safe(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        return {k: make_json_safe(v) for k, v in value.items()}
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+        return [make_json_safe(v) for v in value]
+    if hasattr(value, "isoformat"):
+        try:
+            return value.isoformat()  # datetime-like
+        except Exception:  # pragma: no cover - fallback on serialization
+            pass
+    if hasattr(value, "item"):
+        try:
+            return value.item()
+        except Exception:  # pragma: no cover
+            pass
+    return value
 
 
 def ensure_pandas() -> Tuple[Any, Any]:
@@ -144,6 +163,21 @@ def profile_dataframe(df: pd.DataFrame) -> Dict[str, Any]:
     return profile
 
 
+def generate_ydata_report(df, dataset_name: str, output_path: Path | None, mode: str) -> Path:
+    pd, _ = ensure_pandas()
+    try:
+        from ydata_profiling import ProfileReport
+    except ModuleNotFoundError as exc:  # pragma: no cover
+        raise SystemExit("ydata-profiling is required. Run `uv pip install -e .`.") from exc
+
+    minimal = mode == "minimal"
+    title = f"{dataset_name} profile ({mode})"
+    report = ProfileReport(df, title=title, minimal=minimal)
+    output_path = output_path or profiling_output_path(dataset_name, "html")
+    report.to_file(output_path)
+    return output_path
+
+
 def infer_format(path: Path, user_format: str | None) -> str:
     if user_format:
         return user_format
@@ -182,6 +216,23 @@ def parse_args() -> argparse.Namespace:
         help="Destination path for JSON profile. Defaults to reports/profiling/<dataset>_<timestamp>.json",
     )
     parser.add_argument(
+        "--skip-ydata",
+        action="store_true",
+        help="Disable YData Profiling HTML export.",
+    )
+    parser.add_argument(
+        "--ydata-html",
+        type=Path,
+        default=None,
+        help="Custom output path for YData Profiling HTML report (default: reports/profiling/<dataset>_<timestamp>.html).",
+    )
+    parser.add_argument(
+        "--ydata-mode",
+        choices=["minimal", "explorative"],
+        default="minimal",
+        help="Profiling configuration for YData reports (default: minimal).",
+    )
+    parser.add_argument(
         "--verbose",
         action="store_true",
         help="Enable debug logging.",
@@ -210,11 +261,23 @@ def main() -> None:
     profile["format"] = fmt
 
     output_path = args.output or profiling_output_path(dataset_name)
-    atomic_write_json(output_path, profile)
+    atomic_write_json(output_path, make_json_safe(profile))
     LOGGER.info("Saved profile to %s", output_path)
 
+    ydata_path = None
+    if not args.skip_ydata:
+        ydata_path = generate_ydata_report(df, dataset_name, args.ydata_html, args.ydata_mode)
+        LOGGER.info("Saved YData Profiling report to %s", ydata_path)
+
     # also print concise summary for quick inspection
-    print(json.dumps({"output": str(output_path), "rows": profile["row_count"], "columns": profile["column_count"]}, indent=2))
+    summary = {
+        "output": str(output_path),
+        "rows": profile["row_count"],
+        "columns": profile["column_count"],
+    }
+    if ydata_path:
+        summary["ydata_html"] = str(ydata_path)
+    print(json.dumps(summary, indent=2))
 
 
 if __name__ == "__main__":

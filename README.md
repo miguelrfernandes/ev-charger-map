@@ -17,9 +17,10 @@ This repository documents the workflow for analysing EV charging infrastructure 
 ## Dataset Overview
 | Dataset | Provider | Format | Approx Size | Purpose |
 | --- | --- | --- | --- | --- |
-| Lisboa/Mobi.E charging stations | CM Lisboa ArcGIS FeatureServer | GeoJSON/Feature service | ~1k stations, 15+ attrs | Base layer for Lisbon chargers (location, sockets, usage) |
-| E-Redes national charging points | e-redes.opendatasoft.com | CSV/GeoJSON | 35k+ chargers, 20+ attrs | Cross-validate Lisbon layer, extend to national coverage |
+| Lisboa/Mobi.E charging stations | CM Lisboa ArcGIS FeatureServer | GeoJSON/Feature service | ~160 POIs, 10+ attrs | Base layer for Lisbon chargers (location, sockets, usage) |
+| E-Redes national charging points | e-redes.opendatasoft.com | JSON/CSV | 35k+ chargers, 20+ attrs | Cross-validate Lisbon layer, extend to national coverage |
 | Mobility/traffic flows (World Data League or xMap) | Various | CSV/Parquet | 200m grid counts, time-series | Demand proxy for charging needs |
+| Population density indicator | INE via dados.gov.pt | JSON API | National coverage per NUTS/sex | Provides per-capita normalisation factors |
 | (Optional) Socio-demographic indicators | INE or dados.cm-lisboa.pt | CSV | Parish-level population, EV adoption | Normalise charger counts by population/EV adoption |
 
 Detailed attribute descriptions, quality notes, and acquisition scripts live in `spec/project_spec.md`.
@@ -52,11 +53,20 @@ Raw downloads land in `data/raw/<source>/` with timestamped filenames.
 Use `--help` on each command for additional options (pagination size, filters, custom output paths, etc.).
 
 ## Data Profiling
-Generate attribute summaries for any downloaded dataset and store them under `reports/profiling/`:
+Generate attribute summaries for any downloaded dataset (JSON + YData HTML) under `reports/profiling/`:
 ```bash
-uv run profile-dataset data/raw/lisboa_mobie/latest.geojson --format geojson --dataset-name lisboa_mobie
+uv run profile-dataset data/raw/lisboa_mobie/latest.geojson \
+  --format geojson --dataset-name lisboa_mobie \
+  --ydata-mode minimal
 ```
-Key options: `--format {geojson,opendatasoft,csv,json}`, `--max-rows`, and `--output` for a custom report path. Each run captures column types, missingness, distributions, and top values for quick QA.
+Key options: `--format {geojson,opendatasoft,csv,json}`, `--max-rows`, `--ydata-html` (custom HTML path), and `--skip-ydata` to opt out. Each run captures column types, missingness, distributions, and emits a YData Profiling HTML report for deeper EDA.
+
+## Interactive Profiling (Marimo)
+Launch the Marimo dashboard for quick previews, schema inspection, and links to generated reports:
+```bash
+uv run marimo run notebooks/profiling_app.py
+```
+Select any file under `data/raw/`, override formats, and explore head/summary tables without leaving the browser. The right panel lists the most recent YData HTML profiles for easy access.
 
 ## Tooling & Dependencies
 - Python 3.10+

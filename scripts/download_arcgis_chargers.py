@@ -27,8 +27,8 @@ except ModuleNotFoundError:  # pragma: no cover - fallback for direct execution
     )
 
 DEFAULT_SERVICE_URL = (
-    "https://services-eu1.arcgis.com/oGXF8C9Iq1eZts5u/ArcGIS/rest/services/"
-    "Postos_de_Carregamento_MobiE/FeatureServer/0"
+    "https://services.arcgis.com/1dSrzEWVQn5kHHyK/arcgis/rest/services/"
+    "POITransportes/FeatureServer/2"
 )
 DEFAULT_BATCH_SIZE = 1000
 LOGGER = logging.getLogger(__name__)

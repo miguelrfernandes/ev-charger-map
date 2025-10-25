@@ -1,6 +1,7 @@
 # EV Charger Infrastructure & Demand Analysis Specification
 
 ## 1. Research Questions
+
 1. **Coverage vs. demand:** Where are chargers per capita/EV/highway entrance insufficient across Lisbon parishes and broader Portuguese municipalities?
 2. **Traffic hotspots:** Which grid cells or road segments carry intense trip flows but lack proximate charging capacity?
 3. **Socio-economic equity:** Do lower-income or lower-EV-adoption neighbourhoods receive fewer chargers relative to population density?
@@ -8,16 +9,19 @@
 5. **Data quality:** What gaps, inconsistencies, and duplicates exist across charger datasets, and how do they affect downstream conclusions?
 
 ## 2. Dataset Selection & Description
+
 ### 2.1 Lisboa / Mobi.E Charging Stations (ArcGIS FeatureServer)
-- **Endpoint:** `https://services-eu1.arcgis.com/.../FeatureServer/0`
+
+- **Endpoint:** `https://services.arcgis.com/1dSrzEWVQn5kHHyK/arcgis/rest/services/POITransportes/FeatureServer/2`
 - **Format:** GeoJSON via ArcGIS REST (structured, spatial)
-- **Size:** ~1,000 features (ObjectID, COD_SIG, DESCRICAO, MORADA, TOMADAS, IDTIPO, geometry)
+- **Size:** ~160 features (layer dedicated to Lisboa Mobi.E stations inside POITransportes service with ObjectID, COD_SIG, DESCRICAO, MORADA, TOMADAS, IDTIPO, geometry)
 - **Key attributes:** station code, station name, address, number of sockets, usage type (public/private), charger type, latitude/longitude geometry.
 - **Missing/incomplete:** Some records lack socket counts or have null addresses; coordinate precision varies.
 - **Quality concerns:** Inconsistent casing/accents in `MORADA`/`FREGUESIA`, station types encoded as numeric codes, potential duplicates with national dataset.
 
 ### 2.2 E-Redes National Charging Points (Opendatasoft)
-- **Endpoint:** `https://e-redes.opendatasoft.com/api/records/1.0/search/?dataset=postos-carregamento-ves&rows=5000&start=`
+
+- **Endpoint:** `https://e-redes.opendatasoft.com/api/records/1.0/search/?dataset=postos_carregamento_ves&rows=5000&start=`
 - **Format:** JSON/CSV (tabular, spatial fields `geo_point_2d`, `geo_shape`)
 - **Size:** ~35,849 records, ~25 columns (district, municipality, parish, power, connectors).
 - **Key attributes:** `id`, `designacao`, `municipio`, `freguesia`, `potencia_instalada`, `n_pontos_carregamento`, `estado`, `data_instalacao`.
@@ -25,6 +29,7 @@
 - **Quality concerns:** Text accents vs. ASCII, municipality naming mismatches with Lisbon dataset, duplicates near same coordinates with slight name variations.
 
 ### 2.3 Mobility / Traffic Flows (World Data League Lisbon Challenge)
+
 - **Format:** CSV/Parquet per 15-min interval grid (200 m x 200 m)
 - **Size:** Tens of millions of rows; columns include `grid_id`, `timestamp`, `devices_in`, `devices_out`.
 - **Key attributes:** grid cell geometry, counts of entering/exiting devices, aggregated device IDs.
@@ -32,10 +37,35 @@
 - **Quality concerns:** Need to respect privacy aggregation; ensure consistent CRS when mapping to parishes.
 
 ### 2.4 Optional Socio-Demographic Indicators (INE/Dados CM Lisboa)
+
 - **Format:** CSV (parish-level population, EV ownership, income proxies)
 - **Usage:** Provide denominators for per-capita metrics and equity analysis.
 
+### 2.6 Population Density (INE via dados.gov.pt)
+
+- **Landing page:** https://dados.gov.pt/pt/datasets/densidade-populacional-n-o-km2-7/
+- **API resource:** `https://www.ine.pt/ine/json_indicador/pindica.jsp?op=2&varcd=0012280&lang=PT`
+- **Format:** JSON indicator series (nested arrays with NUTS 2024 codes, sex, value, year)
+- **Size:** National coverage with breakdown by sex and territorial unit (NUTS I/II/III); each request returns dozens of records per region/sex/time slice.
+- **Key attributes:** `geodsg` (territorial description), `geocod` (NUTS code), `Sexo`, `Valor`, `Anos`, indicator metadata.
+- **Usage:** Normalise charger counts per km² or per resident by joining NUTS regions to municipalities/parishes; feed population density into gap analysis and equity scoring.
+- **Missing/incomplete:** Some indicators may contain placeholder values (e.g., `"Valor": "x"` for suppressed data) or aggregated codes lacking finer geography; requires filtering to desired geography (NUTS III covering Lisboa Metropolitana) and casting string numerics to floats.
+- **Quality concerns:** JSON arrays embed metadata headers followed by observations; need parsing helpers. Ensure up-to-date NUTS codes align with DICOFRE lookups before joins.
+
+### 2.5 Lisbon Mobility & Road Context Datasets (Lisboa Aberta)
+
+| Dataset                                           | Landing Page                                                                                                                                                    | Relevance / Notes                                                                                                                                                                                                           |
+| ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Condicionamentos de Trânsito (ativos e previstos) | https://lisboaaberta.cm-lisboa.pt/index.php/pt/dados/conjuntos-de-dados/item/82-condicionamentos-de-trânsito-ativos-e-previstos-na-cidade-de-Lisboa             | Live/near-term road works & closures; useful to contextualise temporary charger access constraints or explain anomalous traffic counts. Expect frequent updates and polygonal/line geometries describing affected segments. |
+| Condicionamentos de Trânsito (histórico)          | https://lisboaaberta.cm-lisboa.pt/index.php/pt/dados/conjuntos-de-dados/item/83-condicionamentos-de-trânsito-histórico                                          | Historical log of closures enables time-series correlation between infrastructure work and charger utilisation or mobility demand. Watch for large file sizes and date-range filters to keep downloads manageable.          |
+| Áreas reguladas de estacionamento na via pública  | https://lisboaaberta.cm-lisboa.pt/index.php/pt/dados/conjuntos-de-dados/item/91-áreas-reguladas-de-estacionamento-na-via-pública                               | Spatial polygons of regulated parking zones (EMEL). Supports analysing charger coverage vs. paid-parking supply and identifying resident-priority areas lacking chargers. Requires harmonising zone IDs with parish codes.  |
+| Declive Longitudinal da Rede Viária               | https://lisboaaberta.cm-lisboa.pt/index.php/pt/dados/conjuntos-de-dados/item/97-declive-longitudinal-da-rede-viária                                             | Road-network slope attributes (percent grade). Useful when assessing energy consumption patterns or siting fast chargers on steep corridors. Geometry-heavy; ensure CRS alignment with charger points.                      |
+| Indicadores de Tráfego                            | https://lisboaaberta.cm-lisboa.pt/index.php/pt/dados/conjuntos-de-dados/item/50-22-indicadores-de-tráfego                                                       | Aggregated traffic indicators (counts, speeds) across monitored segments. Primary candidate for demand-side integration when World Data League/xMap data are unavailable. Validate temporal coverage and sensor metadata.   |
+
+These datasets can be ingested via the dados.cm-lisboa.pt API (often CKAN-based) and profiled like other sources. Prioritise the traffic indicators dataset for core demand analysis, while the others enrich contextual narratives (e.g., closures explaining gaps, parking policy overlaps). Track acquisition scripts for each under `scripts/` as the scope expands. Population-density indicators from INE complement these spatial layers for per-capita metrics.
+
 ## 3. Integrated Data Model
+
 ```
 Entity: Charger
   - station_id (PK)
@@ -111,11 +141,12 @@ For each attribute in `integrated_dataset`:
   - Numeric: histograms, boxplots, summary stats (mean, median, std, min/max, quantiles).
   - Categorical: frequency tables, top/bottom counts, unique value counts.
   - Text: length stats, presence of special characters.
-  - Datetime: coverage window, periodicity (weekday/hour). 
+  - Datetime: coverage window, periodicity (weekday/hour).
 - **Missingness:** compute percentage missing per field; visualise with heatmap (missingno).
 - **Outliers:** IQR method or z-score for sockets/power; highlight stations >95th percentile.
-- **Documentation:** store profiling outputs in `reports/profiling/` (HTML/PNG).
-- **Automated profiling:** run `uv run profile-dataset <path> --format <fmt>` to produce JSON summaries (row counts, column stats, missingness, top values) saved to `reports/profiling/<dataset>_<timestamp>.json` for each raw source.
+- **Documentation:** store profiling outputs in `reports/profiling/` (JSON + HTML).
+- **Automated profiling:** run `uv run profile-dataset <path> --format <fmt>` to produce JSON summaries plus YData Profiling HTML reports saved to `reports/profiling/<dataset>_<timestamp>.{json,html}` for each raw source.
+- **Interactive inspection:** use `uv run marimo run notebooks/profiling_app.py` to preview datasets, schema, and recently generated profiling links during exploratory sessions.
 
 ## 6. Data Quality Strategy
 - **Missing sockets/power:** Impute using median of same charger type within municipality; flag records with boolean indicator `is_imputed`.
@@ -153,3 +184,4 @@ For each attribute in `integrated_dataset`:
 - [ ] Build QA notebook for attribute profiling and visualisation (CLI profiling scaffolded via `profile_dataset.py`).
 - [ ] Run deduplication routine and capture metrics.
 - [ ] Draft ACM report with annexes and publish supporting figures.
+```

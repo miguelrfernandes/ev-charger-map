@@ -27,7 +27,7 @@ except ModuleNotFoundError:  # pragma: no cover
     )
 
 DEFAULT_BASE_URL = "https://e-redes.opendatasoft.com/api/records/1.0/search/"
-DEFAULT_DATASET = "postos-carregamento-ves"
+DEFAULT_DATASET = "postos_carregamento_ves"
 DEFAULT_PAGE_SIZE = 1000
 LOGGER = logging.getLogger(__name__)
 
