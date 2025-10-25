@@ -7,14 +7,15 @@ app = marimo.App(width="medium")
 @app.cell
 def __():
     import pandas as pd
-    return pd,
+    from ydata_profiling import ProfileReport
+    return ProfileReport, pd
 
 
 @app.cell
-def __(pd):
-    url_INE = "" # TODO: Add url
-    df_INE = pd.read_csv(url_INE, sep=";")
-    return df_INE, url_INE
+def __():
+    # url_INE = "" # TODO: Add url
+    # df_INE = pd.read_csv(url_INE, sep=";")
+    return
 
 
 @app.cell
@@ -25,14 +26,10 @@ def __(pd):
 
 
 @app.cell
-def __():
-    from ydata_profiling import ProfileReport
-    # TODO use y_profiling
-    dataset_name = "postos_carregamento_ves"
-    minimal = True
-    mode = "minimal"
-    output_path = None
-    return ProfileReport, dataset_name, minimal, mode, output_path
+def __(ProfileReport, df_EREDES):
+    profile_EREDES = ProfileReport(df_EREDES, title="Profiling Report EREDES")
+    profile_EREDES.to_file("reports/profile_EREDES.html")
+    return profile_EREDES,
 
 
 @app.cell
