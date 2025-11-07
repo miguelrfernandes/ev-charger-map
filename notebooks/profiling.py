@@ -13,7 +13,10 @@ def __():
 
 @app.cell
 def __(pd):
-    url_INE = "data/ERendimentoNLocal2023.xlsx" # Donwload "https://www.ine.pt/ngt_server/attachfileu.jsp?look_parentBoui=739291160&att_display=n&att_download=y" and put it in a folder called data in the repository
+    # Warning
+    # Donwload "https://www.ine.pt/ngt_server/attachfileu.jsp?look_parentBoui=739291160&att_display=n&att_download=y" and put it in a folder named 'data' in the repository root
+
+    url_INE = "data/ERendimentoNLocal2023.xlsx" 
     df_INE = pd.read_excel(url_INE, sheet_name="Agregados_pub_2023")
     df_INE
     return df_INE, url_INE
@@ -28,17 +31,18 @@ def __(pd):
 
 
 @app.cell
-def __(ProfileReport, df_EREDES):
-    profile_EREDES = ProfileReport(df_EREDES, title="Profiling Report EREDES")
-    profile_EREDES.to_file("reports/profile_EREDES.html")
-    return profile_EREDES,
+def __(pd):
+    # Income per municipality
 
+    # Warning
+    # Donwload "https://www.ine.pt/ngt_server/attachfileu.jsp?look_parentBoui=739291160&att_display=n&att_download=y" and put it in a folder named 'data' in the repository root
 
-@app.cell
-def __(ProfileReport, df_INE):
-    profile_INE = ProfileReport(df_INE, title="Profiling Report INE")
-    profile_INE.to_file("reports/profile_INE.html")
-    return profile_INE,
+    url_INE_income = "data/ine_indicador_0011627.csv" 
+    df_INE_income = pd.read_csv(url_INE_income)
+    df_INE_income
+
+                           
+    return df_INE_income, url_INE_income
 
 
 if __name__ == "__main__":
