@@ -27,6 +27,24 @@ marimo edit
 
 ## Dataset Overview
 
+Source
+What
+Link
+Notes
+INE
+População residente (N.º) por Local de residência à data dos Censos [2021] (NUTS - 2013), Sexo, Grupo etário e Nacionalidade
+https://tabulador.ine.pt/indicador/?id=0011627
+Refers to 2021
+E-REDES
+Location by region of connection points for Electric Vehicle Charging Stations. Information on the number of connection points for charging stations and maximum admissible connection power.
+https://e-redes.opendatasoft.com/explore/dataset/postos_carregamento_ves/information/
+
+Data from 2024
+INE
+Income per municipality
+https://www.ine.pt/ngt_server/attachfileu.jsp?look_parentBoui=739291160&att_display=n&att_download=y
+Consider year 2023
+
 | Dataset                                            | Provider                       | Format                  | Approx Size                          | Purpose                                                   |
 | -------------------------------------------------- | ------------------------------ | ----------------------- | ------------------------------------ | --------------------------------------------------------- |
 | Lisboa/Mobi.E charging stations                    | CM Lisboa ArcGIS FeatureServer | GeoJSON/Feature service | ~160 POIs, 10+ attrs                 | Base layer for Lisbon chargers (location, sockets, usage) |
@@ -38,6 +56,14 @@ marimo edit
 Set up the environment with uv (installs dependencies from `pyproject.toml` and exposes console scripts):
 
 ## Other Resources to Explore
+
+| Dataset                                            | Provider                       | Format                  | Approx Size                          | Purpose                                                   |
+| -------------------------------------------------- | ------------------------------ | ----------------------- | ------------------------------------ | --------------------------------------------------------- |
+| Lisboa/Mobi.E charging stations                    | CM Lisboa ArcGIS FeatureServer | GeoJSON/Feature service | ~160 POIs, 10+ attrs                 | Base layer for Lisbon chargers (location, sockets, usage) |
+| E-Redes national charging points                   | e-redes.opendatasoft.com       | JSON/CSV                | 35k+ chargers, 20+ attrs             | Cross-validate Lisbon layer, extend to national coverage  |
+| Mobility/traffic flows (World Data League or xMap) | Various                        | CSV/Parquet             | 200m grid counts, time-series        | Demand proxy for charging needs                           |
+| Population density indicator                       | INE via dados.gov.pt           | JSON API                | National coverage per NUTS/sex       | Provides per-capita normalisation factors                 |
+| (Optional) Socio-demographic indicators            | INE or dados.cm-lisboa.pt      | CSV                     | Parish-level population, EV adoption | Normalise charger counts by population/EV adoption        |
 
 | Dataset                                           | Landing Page                                                                                                                                        | Relevance / Notes                                                                                                                                                                                                           |
 | ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
