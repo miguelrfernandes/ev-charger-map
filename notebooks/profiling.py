@@ -16,13 +16,13 @@ def __(mo):
         r"""
         3 datasets
 
-            | Title | Description | Link |
+            | Title | Description | Source |
             | --- | --- | --- |
-            | INE Population | População residente (N.º) por Local de residência à data dos Censos [2021] (NUTS - 2013), Sexo, Grupo etário e Nacionalidade | https://tabulador.ine.pt/indicador/?id=0011627 |
-            | INE Income per municipality | Income per municipality | https://www.ine.pt/ngt_server/attachfileu.jsp?look_parentBoui=739291160&att_display=n&att_download=y |
-            | EREDES | Location by region of connection points for Electric Vehicle Charging Stations. Information on the number of connection points for charging stations and maximum admissible connection power. | https://e-redes.opendatasoft.com/explore/dataset/postos_carregamento_ves/information/ |
+            | Population | População residente (N.º) por Local de residência à data dos Censos [2021] (NUTS - 2013), Sexo, Grupo etário e Nacionalidade | [INE](https://censos.ine.pt/xportal/xmain?xpid=INE&xpgid=ine_indicadores&userLoadSave=Load&userTableOrder=13050&tipoSeleccao=1&contexto=pq&selTab=tab1&submitLoad=true&xlang=pt) |
+            | Income | Income per municipality | [INE](https://www.ine.pt/ngt_server/attachfileu.jsp?look_parentBoui=739291160&att_display=n&att_download=y) |
+            | EV Stations | Location by region of connection points for Electric Vehicle Charging Stations. Includes the number of connection points for charging stations. | [EREDES](https://e-redes.opendatasoft.com/explore/dataset/postos_carregamento_ves/information/) |
 
-            https://censos.ine.pt/xportal/xmain?xpid=INE&xpgid=ine_indicadores&userLoadSave=Load&userTableOrder=13050&tipoSeleccao=1&contexto=pq&selTab=tab1&submitLoad=true&xlang=pt
+        
         """
     )
     return
@@ -37,7 +37,7 @@ def __():
 
 @app.cell
 def __(pd):
-    # Warning
+    # Income
     # Donwload "https://www.ine.pt/ngt_server/attachfileu.jsp?look_parentBoui=739291160&att_display=n&att_download=y" and put it in a folder named 'data' in the repository root
 
     url_INE = "data/ERendimentoNLocal2023.xlsx"
@@ -46,42 +46,39 @@ def __(pd):
     #profile_INE = ProfileReport(df_INE, title="Profiling Report INE")
     #profile_INE.to_file("reports/profile_INE.html")
 
+    # Filter
     df_INE = df_INE[df_INE["Nível territorial"] == "Município"]
+
+    # Rename Nível territorial to Concelho
+    df_INE = df_INE.rename(columns={"Designação": "Concelho"})
+
+    # Only keep desired columns
+    df_INE = df_INE[["Concelho", "Rendimento bruto declarado"]]
     df_INE
     return df_INE, url_INE
 
 
 @app.cell
-def __():
-    # Income per municipality
-
-    # Warning
+def __(pd):
+    # Population Density
     # Download "https://tabulador.ine.pt/indicador/?id=0011627" and put it in a folder named 'data' in the repository root
 
-    #url_INE_income = "data/ine_densidade_populacional.csv"
-    # df_INE_income = pd.read_csv(url_INE_income, sep=";", encoding="cp1252")
-    #df_INE_income = pd.read_excel("data/ine_densidade_populacional.xls")
-    # print(df_INE_income.head())
-
-
-    #profile_INE_income = ProfileReport(
-    #    df_INE_income, title="Profiling Report INE Income"
-    #)
-    #profile_INE_income.to_file("reports/profile_INE_income.html")
-    return
-
-
-@app.cell
-def __(pd):
     # Load the CSV file, skipping the metadata header rows
-    # Row 5 has the column names, data starts at row 6
+
+    url_INE_densidade = "data/ine_densidade_populacional.csv"
+
     df_INE_densidade = pd.read_csv(
-        "data/ine_densidade_populacional.csv",
+        url_INE_densidade,
         sep=";",
         skiprows=7,  # Skip metadata lines
         decimal=",",  # Portuguese CSV uses comma as decimal separator
         encoding="latin-1",  # Portuguese INE files use latin-1 encoding
     )
+
+    #profile_INE_densidade = ProfileReport(
+    #    df_INE_densidade, title="Profiling Report INE Income"
+    #)
+    #profile_INE_densidade.to_file("reports/profile_INE_densidade.html")
 
     # The CSV has 7 columns
     # Columns: Year, Region, Density, Cidades, Freguesias, Vilas, Unnamed
@@ -138,7 +135,14 @@ def __(pd):
     # Convert year to integer
     df_INE_densidade["Ano"] = df_INE_densidade["Ano"].astype(int)
 
+    # Only select Concelho
     df_INE_densidade = df_INE_densidade[df_INE_densidade['Código_NUTS'].str.len() == 7]
+
+    # Rename região to Concelho
+    df_INE_densidade = df_INE_densidade.rename(columns={"Região": "Concelho"})
+
+    # Only keep desired columns
+    df_INE_densidade = df_INE_densidade[["Concelho", "Densidade_Populacional_km2"]]
 
     # Display basic info
     print("Shape:", df_INE_densidade.shape)
@@ -150,20 +154,14 @@ def __(pd):
     print(df_INE_densidade.columns.tolist())
     print("\nData types:")
     print(df_INE_densidade.dtypes)
-    print(f"\nYears in dataset: {df_INE_densidade['Ano'].unique()}")
-    print(f"\nRecords per year:\n{df_INE_densidade['Ano'].value_counts()}")
+
+    df_INE_densidade
 
     # Save cleaned data to a new CSV
     # output_file = "data/ine_densidade_populacional_clean.csv"
     # df_INE_densidade.to_csv(output_file, index=False, encoding="utf-8-sig")
     # print(f"\n✓ Cleaned data saved to {output_file}")
-    return col, column_mapping, df_INE_densidade
-
-
-@app.cell
-def __(df_INE_densidade):
-    df_INE_densidade
-    return
+    return col, column_mapping, df_INE_densidade, url_INE_densidade
 
 
 @app.cell
@@ -174,15 +172,10 @@ def __(pd):
     #profile_EREDES = ProfileReport(df_EREDES, title="Profiling Report EREDES")
     #profile_EREDES.to_file("reports/profile_EREDES.html")
 
-    unique_trimestres = df_EREDES['Trimestre'].unique()
-    print(unique_trimestres)
+    #print(unique_trimestres = df_EREDES['Trimestre'].unique())
 
     df_EREDES[df_EREDES["Trimestre"]=="2025T3"]
-    return df_EREDES, unique_trimestres, url_EREDES
 
-
-@app.cell
-def __(df_EREDES):
     agg_by_freguesia = df_EREDES.groupby('Freguesia').agg(
         count_rows=('Freguesia', 'size'),
         sum_pontos_de_ligacao=('Pontos de ligação para instalações de PCVE', 'sum')
@@ -193,8 +186,8 @@ def __(df_EREDES):
         sum_pontos_de_ligacao=('Pontos de ligação para instalações de PCVE', 'sum')
     ).reset_index()
 
-    agg_by_freguesia
-    return agg_by_concelho, agg_by_freguesia
+    agg_by_concelho
+    return agg_by_concelho, agg_by_freguesia, df_EREDES, url_EREDES
 
 
 @app.cell
