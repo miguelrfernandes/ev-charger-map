@@ -138,6 +138,8 @@ def __(pd):
     # Convert year to integer
     df_INE_densidade["Ano"] = df_INE_densidade["Ano"].astype(int)
 
+    df_INE_densidade = df_INE_densidade[df_INE_densidade['Código_NUTS'].str.len() == 7]
+
     # Display basic info
     print("Shape:", df_INE_densidade.shape)
     print("\nFirst 10 rows:")
@@ -158,12 +160,10 @@ def __(pd):
     return col, column_mapping, df_INE_densidade
 
 
-app._unparsable_cell(
-    r"""
-     df_INE_densidade
-    """,
-    name="__"
-)
+@app.cell
+def __(df_INE_densidade):
+    df_INE_densidade
+    return
 
 
 @app.cell
