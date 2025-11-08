@@ -21,9 +21,8 @@ def __(mo):
             | INE Population | População residente (N.º) por Local de residência à data dos Censos [2021] (NUTS - 2013), Sexo, Grupo etário e Nacionalidade | https://tabulador.ine.pt/indicador/?id=0011627 |
             | INE Income per municipality | Income per municipality | https://www.ine.pt/ngt_server/attachfileu.jsp?look_parentBoui=739291160&att_display=n&att_download=y |
             | EREDES | Location by region of connection points for Electric Vehicle Charging Stations. Information on the number of connection points for charging stations and maximum admissible connection power. | https://e-redes.opendatasoft.com/explore/dataset/postos_carregamento_ves/information/ |
-        
-            https://censos.ine.pt/xportal/xmain?xpid=INE&xpgid=ine_indicadores&userLoadSave=Load&userTableOrder=13050&tipoSeleccao=1&contexto=pq&selTab=tab1&submitLoad=true&xlang=pt
 
+            https://censos.ine.pt/xportal/xmain?xpid=INE&xpgid=ine_indicadores&userLoadSave=Load&userTableOrder=13050&tipoSeleccao=1&contexto=pq&selTab=tab1&submitLoad=true&xlang=pt
         """
     )
     return
@@ -57,7 +56,7 @@ def __():
     # Income per municipality
 
     # Warning
-    # Donwload "https://tabulador.ine.pt/indicador/?id=0011627" and put it in a folder named 'data' in the repository root
+    # Download "https://tabulador.ine.pt/indicador/?id=0011627" and put it in a folder named 'data' in the repository root
 
     #url_INE_income = "data/ine_densidade_populacional.csv"
     # df_INE_income = pd.read_csv(url_INE_income, sep=";", encoding="cp1252")
@@ -69,21 +68,17 @@ def __():
     #    df_INE_income, title="Profiling Report INE Income"
     #)
     #profile_INE_income.to_file("reports/profile_INE_income.html")
-
-
-
     return
 
 
 @app.cell
 def __(pd):
-
     # Load the CSV file, skipping the metadata header rows
     # Row 5 has the column names, data starts at row 6
     df_INE_densidade = pd.read_csv(
         "data/ine_densidade_populacional.csv",
         sep=";",
-        skiprows=5,  # Skip metadata lines
+        skiprows=7,  # Skip metadata lines
         decimal=",",  # Portuguese CSV uses comma as decimal separator
         encoding="latin-1",  # Portuguese INE files use latin-1 encoding
     )
@@ -94,9 +89,7 @@ def __(pd):
         df_INE_densidade.columns[0]: "Ano",
         df_INE_densidade.columns[1]: "Região",
         df_INE_densidade.columns[2]: "Densidade_Populacional_km2",
-        df_INE_densidade.columns[3]: "Cidades",
         df_INE_densidade.columns[4]: "Freguesias",
-        df_INE_densidade.columns[5]: "Vilas",
     }
 
     # Select and rename columns (excluding the last Unnamed column)
@@ -116,11 +109,19 @@ def __(pd):
     # Replace 'x' values with NaN
     df_INE_densidade = df_INE_densidade.replace("x", pd.NA)
 
+    # Fix densidade values: replace commas with periods for proper float conversion
+    # The decimal="," parameter doesn't work when the column is read as object type
+    df_INE_densidade["Densidade_Populacional_km2"] = (
+        df_INE_densidade["Densidade_Populacional_km2"]
+        .astype(str)
+        .str.replace(",", ".", regex=False)
+    )
+
     # Forward fill the year column (it only appears in the first row of each year)
     df_INE_densidade["Ano"] = df_INE_densidade["Ano"].ffill()
 
-    # Remove footer metadata rows - keep only rows where Ano is '2024' or '2023'
-    df_INE_densidade = df_INE_densidade[df_INE_densidade["Ano"].isin(["2024", "2023"])]
+    # Remove footer metadata rows - keep only rows where Ano is '2024'
+    df_INE_densidade = df_INE_densidade[df_INE_densidade["Ano"].isin(["2024"])]
 
     # Remove rows where Região is null or contains metadata patterns
     df_INE_densidade = df_INE_densidade[
@@ -131,7 +132,7 @@ def __(pd):
     ]
 
     # Convert numeric columns to proper numeric types
-    for col in ["Densidade_Populacional_km2", "Cidades", "Freguesias", "Vilas"]:
+    for col in ["Densidade_Populacional_km2",  "Freguesias"]:
         df_INE_densidade[col] = pd.to_numeric(df_INE_densidade[col], errors="coerce")
 
     # Convert year to integer
@@ -151,11 +152,18 @@ def __(pd):
     print(f"\nRecords per year:\n{df_INE_densidade['Ano'].value_counts()}")
 
     # Save cleaned data to a new CSV
-    output_file = "data/ine_densidade_populacional_clean.csv"
-    df_INE_densidade.to_csv(output_file, index=False, encoding="utf-8-sig")
-    print(f"\n✓ Cleaned data saved to {output_file}")
+    # output_file = "data/ine_densidade_populacional_clean.csv"
+    # df_INE_densidade.to_csv(output_file, index=False, encoding="utf-8-sig")
+    # print(f"\n✓ Cleaned data saved to {output_file}")
+    return col, column_mapping, df_INE_densidade
 
-    return col, column_mapping, df_INE_densidade, output_file
+
+app._unparsable_cell(
+    r"""
+     df_INE_densidade
+    """,
+    name="__"
+)
 
 
 @app.cell
@@ -170,7 +178,6 @@ def __(pd):
     print(unique_trimestres)
 
     df_EREDES[df_EREDES["Trimestre"]=="2025T3"]
-
     return df_EREDES, unique_trimestres, url_EREDES
 
 
