@@ -51,7 +51,7 @@ def __(pd):
     df_INE = df_INE.rename(columns={"Designação": "Concelho"})
 
     # Only keep desired columns
-    df_INE = df_INE[["Concelho", "Rendimento bruto declarado"]]#, "Código territorial"]]
+    df_INE = df_INE[["Concelho", "Rendimento bruto declarado médio por agregado fiscal"]]
     df_INE
     return df_INE, url_INE
 
@@ -166,19 +166,22 @@ def __(pd):
     # Only keep latest quarter
     df_EREDES[df_EREDES["Trimestre"]=="2025T3"]
     df_EREDES
-
     return df_EREDES, url_EREDES
 
 
 @app.cell
 def __(df_EREDES):
+    # Fix typos in EREDES
+    df_EREDES['Concelho'] = df_EREDES['Concelho'].replace("Castro daire", "Castro Daire")
+    df_EREDES['Concelho'] = df_EREDES['Concelho'].replace("Miranda do douro", "Miranda do Douro")
+    df_EREDES['Concelho'] = df_EREDES['Concelho'].replace("Freixo de Espada \u00c0 Cinta", "Freixo de Espada \u00e0 Cinta")
+
     df_EREDES_agg = df_EREDES.groupby('Concelho').agg(
         count_rows=('Concelho', 'size'),
         sum_pontos_de_ligacao=('Pontos de ligação para instalações de PCVE', 'sum')
     ).reset_index()
 
     df_EREDES_agg
-
     return df_EREDES_agg,
 
 
@@ -207,7 +210,6 @@ def __(df_EREDES_agg, df_INE, df_INE_densidade):
 
 @app.cell
 def __(df_EREDES_agg, df_INE, df_INE_densidade, join_df):
-
     # Identify lost concelhos
     # lost from df_INE
     lost_from_INE = df_INE[~df_INE['Concelho'].isin(join_df['Concelho'])]['Concelho'].tolist()
@@ -225,6 +227,130 @@ def __(df_EREDES_agg, df_INE, df_INE_densidade, join_df):
 
     result
     return lost_from_EREDES, lost_from_INE, lost_from_densidade, result
+
+
+@app.cell
+def __(join_df):
+    plot_df = join_df.copy()
+    plot_df['rank_stations'] = join_df['num_charging_stations'].rank(ascending=True, method='first')
+    plot_df['rank_points'] = join_df['total_charging_points'].rank(ascending=True, method='first')
+    plot_df['rank_density'] = join_df['Densidade_Populacional_km2'].rank(ascending=True, method='first')
+    plot_df['rank_income'] = join_df['Rendimento bruto declarado médio por agregado fiscal'].rank(ascending=True, method='first')
+    plot_df
+    return plot_df,
+
+
+@app.cell
+def __(plot_df, plt):
+    # Population density <---> charging points
+
+    # Select top municipalities by one metric
+    _top_n_density = 10
+    _df_density_plot = plot_df.nlargest(_top_n_density, 'rank_points')[
+        ['Concelho', 'rank_density', 'rank_points', 'Densidade_Populacional_km2', 'total_charging_points']
+    ]
+
+    # Create figure
+    _fig_density, _ax_density = plt.subplots(figsize=(6, 10))
+
+    # Rank total_charging_points adjusted
+    _df_density_plot['rank_density_adjusted'] = _df_density_plot.apply(
+        lambda r: r['rank_density'] if r['rank_density'] >= 279 - _top_n_density 
+                    else 279 - _top_n_density - 1 - sum((_df_density_plot['rank_density'] < 279 - _top_n_density) & 
+                                                          (_df_density_plot['rank_density'] > r['rank_density'])),
+        axis=1
+    )
+
+    # Plot lines for each municipality
+    for _i, _r in _df_density_plot.iterrows():
+        _ax_density.plot([0, 1], [_r['rank_points'], _r['rank_density_adjusted']], 
+                'o-', linewidth=2, markersize=8, alpha=0.7)
+        
+        # Add labels on the left
+        _ax_density.text(-0.05, _r['rank_points'], 
+                f"{_r['Concelho']}: {_r['total_charging_points']:.2f} ({int(279 - _r['rank_points'])}º)", 
+                ha='right', va='center', fontsize=10)
+        
+        # Add labels on the right
+        _ax_density.text(1.05, _r['rank_density_adjusted'], 
+                f"{_r['Densidade_Populacional_km2']:.1f}/km² ({int(279 - _r['rank_density'])}º)", 
+                ha='left', va='center', fontsize=10)
+
+    # Customize plot
+    _ax_density.set_xlim(-0.3, 1.3)
+    _ax_density.set_xticks([0, 1])
+    _ax_density.set_xticklabels(['Number of\nCharging Points', 'Population Density'], 
+                        fontsize=12, fontweight='bold')
+    _ax_density.spines['top'].set_visible(False)
+    _ax_density.spines['right'].set_visible(False)
+    _ax_density.spines['bottom'].set_visible(False)
+    _ax_density.spines['left'].set_visible(False)
+    _ax_density.yaxis.set_visible(False)
+    _ax_density.grid(axis='y', alpha=0.3, linestyle='--')
+
+    plt.tight_layout()
+    plt.show()
+    return
+
+
+@app.cell
+def __(plot_df):
+    import matplotlib.pyplot as plt
+
+    # Select top municipalities by one metric
+    top_n = 10
+    df_plot = plot_df.nlargest(top_n, 'rank_points')[['Concelho', 'rank_points', 'rank_income', 'Rendimento bruto declarado médio por agregado fiscal', 'total_charging_points']]
+
+    # Create figure
+    fig, ax = plt.subplots(figsize=(6, 10))
+
+    # Rank income adjusted - those in top 10 get their reverse rank (265, 264...), others get 11, 12, 13...
+    df_plot['rank_income_adjusted'] = df_plot.apply(
+        lambda row: row['rank_income'] if row['rank_income'] >= 279 - top_n 
+                    else 279 - top_n - 1 - sum((df_plot['rank_income'] < 279 - top_n) & (df_plot['rank_income'] > row['rank_income'])),
+        axis=1
+    )
+
+    # Plot lines for each municipality
+    for idx, row in df_plot.iterrows():
+        ax.plot([0, 1], [row['rank_points'], row['rank_income_adjusted']], 
+                'o-', linewidth=2, markersize=8, alpha=0.7)
+        
+        # Add labels on the left
+        ax.text(-0.05, row['rank_points'], 
+                f"{row['Concelho']}: {row['total_charging_points']} ({int(279 - row['rank_points'])}º)", 
+                ha='right', va='center', fontsize=10)
+        
+        # Add labels on the right
+        ax.text(1.05, row['rank_income_adjusted'], 
+                f"{row['Rendimento bruto declarado médio por agregado fiscal']}€ ({int(279 - row['rank_income'])}º)", 
+                ha='left', va='center', fontsize=10)
+
+
+    # Customize plot
+    ax.set_xlim(-0.3, 1.3)
+    ax.set_xticks([0, 1])
+    ax.set_xticklabels(['Number of\nCharging Points', 'Average Income\nper Household'], 
+                        fontsize=12, fontweight='bold')
+    ax.set_ylabel('Count', fontsize=12)
+    ax.spines['top'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['bottom'].set_visible(False)
+    ax.spines['left'].set_visible(False)
+    ax.yaxis.set_visible(False)
+    ax.grid(axis='y', alpha=0.3, linestyle='--')
+
+    #plt.title('Charging Infrastructure Comparison by Municipality', 
+    #          fontsize=14, fontweight='bold', pad=20)
+    plt.tight_layout()
+    plt.show()
+
+    return ax, df_plot, fig, idx, plt, row, top_n
+
+
+@app.cell
+def __():
+    return
 
 
 if __name__ == "__main__":
