@@ -349,8 +349,35 @@ def __(plot_df):
 
 
 @app.cell
-def __():
-    return
+def __(plot_df):
+    # Get the concelhos that are in top n income but NOT in top n charging points
+    _top_n = 30
+    df_top_n_points = plot_df.nlargest(_top_n, 'rank_points')['Concelho']
+    df_top_n_income = plot_df.nlargest(_top_n, 'rank_income')['Concelho']
+    df_top_n_density = plot_df.nlargest(_top_n, 'rank_density')['Concelho']
+
+    # Concelhos in top n income but NOT in top n charging points
+    in_income_not_points = set(df_top_n_income) - set(df_top_n_points)
+    print(f"In top {_top_n} income but NOT in top {_top_n} charging points:")
+    print(in_income_not_points)
+
+    # Concelhos in top n density but NOT in top n charging points
+    in_density_not_points = set(df_top_n_density) - set(df_top_n_points)
+    print(f"In top {_top_n} density but NOT in top {_top_n} charging points:")
+    print(in_density_not_points)
+
+    # 
+    in_both = set(in_income_not_points) & set(in_density_not_points)
+    print(f"In BOTH income AND density top {_top_n}, but NOT in charging points top {_top_n}:")
+    print(in_both)
+    return (
+        df_top_n_density,
+        df_top_n_income,
+        df_top_n_points,
+        in_both,
+        in_density_not_points,
+        in_income_not_points,
+    )
 
 
 if __name__ == "__main__":
