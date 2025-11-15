@@ -1,7 +1,7 @@
 import marimo
 
 __generated_with = "0.7.20"
-app = marimo.App(width="medium")
+app = marimo.App(width="medium", layout_file="layouts/profiling.slides.json")
 
 
 @app.cell
@@ -51,21 +51,30 @@ def __():
 
 
 @app.cell
-def __(pd):
-    # Income
-    # Donwload "https://www.ine.pt/ngt_server/attachfileu.jsp?look_parentBoui=739291160&att_display=n&att_download=y" and put it in a folder named 'data' in the repository root
+def __(mo, pd):
+    # Download "https://www.ine.pt/ngt_server/attachfileu.jsp?look_parentBoui=739291160&att_display=n&att_download=y" and put it in a folder named 'data' in the repository root
 
     url_INE = "data/ERendimentoNLocal2023.xlsx"
     df_INE_raw = pd.read_excel(url_INE, sheet_name="Agregados_pub_2023", header=1)
     df_INE_raw
+
+
+    mo.vstack([
+        mo.md("# Income"),
+        df_INE_raw
+    ])
     return df_INE_raw, url_INE
 
 
 @app.cell
-def __(df_INE_raw):
-    #profile_INE = ProfileReport(df_INE, title="Profiling Report INE")
-    #profile_INE.to_file("reports/profile_INE.html")
+def __(ProfileReport, df_INE):
+    profile_INE = ProfileReport(df_INE, title="Profiling Report INE")
+    profile_INE.to_file("reports/profile_INE.html")
+    return profile_INE,
 
+
+@app.cell
+def __(df_INE_raw, mo):
     # Filter
     df_INE = df_INE_raw[df_INE_raw["Nível territorial"] == "Município"]
 
@@ -74,20 +83,30 @@ def __(df_INE_raw):
 
     # Only keep desired columns
     df_INE = df_INE[["Concelho", "Rendimento bruto declarado médio por agregado fiscal"]]
-    df_INE
+
+    mo.vstack([
+        mo.md("# Income (Processed)"),
+        df_INE
+    ])
     return df_INE,
 
 
 @app.cell
-def __():
+def __(mo):
+    import html
+
     with open("data/ine_densidade_populacional.csv", "r", encoding="latin-1") as f:
         output = f.read()
-    output
-    return f, output
+            
+    mo.vstack([
+        mo.md("# Density"),
+        mo.Html(f"<pre>{output}</pre>")
+    ])
+    return f, html, output
 
 
 @app.cell
-def __(pd):
+def __(mo, pd):
     # Population Density
     # Download "https://tabulador.ine.pt/indicador/?id=0011627" and put it in a folder named 'data' in the repository root
 
@@ -175,11 +194,15 @@ def __(pd):
     # Remove first 3 digits in Código territorial
     # df_INE_densidade["Código territorial"] = df_INE_densidade["Código territorial"].str[3:]
 
-    df_INE_densidade_display = df_INE_densidade.copy()
+    df_INE_densidade_display = df_INE_densidade.copy()     
 
     # Only keep desired columns
     df_INE_densidade = df_INE_densidade[["Concelho", "Densidade_Populacional_km2"]]
-    df_INE_densidade_display
+
+    mo.vstack([
+        mo.md("# Density (Processed)"),
+        df_INE_densidade_display
+    ])
     return (
         col,
         column_mapping,
@@ -190,34 +213,41 @@ def __(pd):
 
 
 @app.cell
-def __(pd):
+def __(mo, pd):
     url_EREDES = "https://e-redes.opendatasoft.com/api/explore/v2.1/catalog/datasets/postos_carregamento_ves/exports/csv?lang=pt&timezone=Europe%2FLisbon&use_labels=true&delimiter=%3B"
     df_EREDES_raw = pd.read_csv(url_EREDES, sep=";")
 
-    df_EREDES_raw
+    mo.vstack([
+        mo.md("# Charging Points"),
+        df_EREDES_raw
+    ])
     return df_EREDES_raw, url_EREDES
 
 
 @app.cell
 def __(ProfileReport, df_EREDES_raw):
     profile_EREDES = ProfileReport(df_EREDES_raw, title="Profiling Report EREDES")
-    #profile_EREDES.to_file("reports/profile_EREDES.html")
+    profile_EREDES.to_file("reports/profile_EREDES.html")
     return profile_EREDES,
 
 
 @app.cell
-def __(df_EREDES_raw):
+def __(df_EREDES_raw, mo):
     # Rename CodDistritoConcelho to Código territorial
     df_EREDES = df_EREDES_raw.rename(columns={"CodDistritoConcelho": "Código territorial"})
 
     # Only keep latest quarter
     df_EREDES[df_EREDES["Trimestre"]=="2025T3"]
-    df_EREDES
+
+    mo.vstack([
+        mo.md("# Charging Points (Processed)"),
+        df_EREDES
+    ])
     return df_EREDES,
 
 
 @app.cell
-def __(df_EREDES):
+def __(df_EREDES, mo):
     # Fix typos in EREDES
     df_EREDES['Concelho'] = df_EREDES['Concelho'].replace("Castro daire", "Castro Daire")
     df_EREDES['Concelho'] = df_EREDES['Concelho'].replace("Miranda do douro", "Miranda do Douro")
@@ -228,12 +258,15 @@ def __(df_EREDES):
         sum_pontos_de_ligacao=('Pontos de ligação para instalações de PCVE', 'sum')
     ).reset_index()
 
-    df_EREDES_agg
+    mo.vstack([
+        mo.md("# Charging Points (Aggregated)"),
+        df_EREDES_agg
+    ])
     return df_EREDES_agg,
 
 
 @app.cell
-def __(df_EREDES_agg, df_INE, df_INE_densidade):
+def __(df_EREDES_agg, df_INE, df_INE_densidade, mo):
     # Join all three dataframes on 'Concelho'
     join_df = df_INE.merge(
         df_INE_densidade, 
@@ -251,12 +284,15 @@ def __(df_EREDES_agg, df_INE, df_INE_densidade):
         'sum_pontos_de_ligacao': 'total_charging_points'
     })
 
-    join_df
+    mo.vstack([
+        mo.md("# Joint Dataframe"),
+        join_df
+    ])
     return join_df,
 
 
 @app.cell
-def __(df_EREDES_agg, df_INE, df_INE_densidade, join_df):
+def __(df_EREDES_agg, df_INE, df_INE_densidade, join_df, mo):
     # Identify lost concelhos
     # lost from df_INE
     lost_from_INE = df_INE[~df_INE['Concelho'].isin(join_df['Concelho'])]['Concelho'].tolist()
@@ -265,30 +301,36 @@ def __(df_EREDES_agg, df_INE, df_INE_densidade, join_df):
     # lost from df_EREDES_agg
     lost_from_EREDES = df_EREDES_agg[~df_EREDES_agg['Concelho'].isin(join_df['Concelho'])]['Concelho'].tolist()
 
-    result = {
-        'joined_dataframe': join_df,
-        'lost_from_INE': lost_from_INE,
-        'lost_from_INE_densidade': lost_from_densidade,
-        'lost_from_EREDES': lost_from_EREDES
-    }
-
-    result
-    return lost_from_EREDES, lost_from_INE, lost_from_densidade, result
+    mo.vstack([
+        mo.md("# Lost Municipalities"),
+        mo.md("Lost from Income (INE)"),
+        lost_from_INE,
+        mo.md("Lost from Population Density (INE)"),
+        lost_from_densidade,
+        mo.md("Lost from Charging Points (EREDES)"),
+        lost_from_EREDES,
+    ])
+    return lost_from_EREDES, lost_from_INE, lost_from_densidade
 
 
 @app.cell
-def __(join_df):
+def __(join_df, mo):
     plot_df = join_df.copy()
     plot_df['rank_stations'] = join_df['num_charging_stations'].rank(ascending=True, method='first')
     plot_df['rank_points'] = join_df['total_charging_points'].rank(ascending=True, method='first')
     plot_df['rank_density'] = join_df['Densidade_Populacional_km2'].rank(ascending=True, method='first')
     plot_df['rank_income'] = join_df['Rendimento bruto declarado médio por agregado fiscal'].rank(ascending=True, method='first')
     plot_df
+
+    mo.vstack([
+        mo.md("# Ranked"),
+        plot_df
+    ])
     return plot_df,
 
 
 @app.cell
-def __(plot_df, plt):
+def __(mo, plot_df, plt):
     # Population density <---> charging points
 
     # Select top municipalities by one metric
@@ -335,13 +377,15 @@ def __(plot_df, plt):
     _ax_density.yaxis.set_visible(False)
     _ax_density.grid(axis='y', alpha=0.3, linestyle='--')
 
-    plt.tight_layout()
-    plt.show()
+    mo.vstack([
+        mo.md("# Charging Infrastructure Comparison by Municipality"),
+        _fig_density
+    ])
     return
 
 
 @app.cell
-def __(plot_df):
+def __(mo, plot_df):
     import matplotlib.pyplot as plt
 
     # Select top municipalities by one metric
@@ -387,10 +431,10 @@ def __(plot_df):
     ax.yaxis.set_visible(False)
     ax.grid(axis='y', alpha=0.3, linestyle='--')
 
-    #plt.title('Charging Infrastructure Comparison by Municipality', 
-    #          fontsize=14, fontweight='bold', pad=20)
-    plt.tight_layout()
-    plt.show()
+    mo.vstack([
+        mo.md("# Charging Infrastructure Comparison by Municipality"),
+        fig
+    ])
     return ax, df_plot, fig, idx, plt, row, top_n
 
 
@@ -440,11 +484,125 @@ def __(mo):
 
         In this experiment we used the total number of charging points, but that could be biased towards municipalities with larger areas. In a future experiment we could consider metrics that take into account geographical or demographical dimension, e.g., charging points per km2 or per household.
         The experiment seems to support the intuitive belief that more densely populated municipalities have more charging points. On the other hand, the relation between number of charging points and family income is not so direct, which might be unfortunate as these municipalities with higher income families are probably more likely to be renewing and upgrading their vehicle more regularly, and thus should be a priority to accelerate the transition to greener transportation. This relation is yet to be proven and could be subject of future work.
-        
+
         With this work we listed a set of municipalities that could invest in new charging points using a heuristic that related the municipality position in both income and population density with the number of charging points. Under this heuristic Entrocamento is the only municipality present in both.
         """
     )
     return
+
+
+@app.cell
+def __(join_df, mo):
+    import plotly.express as px
+    import plotly.graph_objects as go
+    from plotly.subplots import make_subplots
+    import numpy as np
+    from scipy import stats
+
+    # Create 4 separate plots with trendlines
+    _fig1 = px.scatter(join_df, 
+                       x='Rendimento bruto declarado médio por agregado fiscal',
+                       y='num_charging_stations',
+                       hover_name='Concelho',
+                       trendline='ols',
+                       color_discrete_sequence=['#3498db'])
+
+    _fig2 = px.scatter(join_df,
+                       x='Densidade_Populacional_km2',
+                       y='num_charging_stations',
+                       hover_name='Concelho',
+                       trendline='ols',
+                       color_discrete_sequence=['#e74c3c'])
+
+    _fig3 = px.scatter(join_df,
+                       x='Rendimento bruto declarado médio por agregado fiscal',
+                       y='total_charging_points',
+                       hover_name='Concelho',
+                       trendline='ols',
+                       color_discrete_sequence=['#2ecc71'])
+
+    _fig4 = px.scatter(join_df,
+                       x='Densidade_Populacional_km2',
+                       y='total_charging_points',
+                       hover_name='Concelho',
+                       trendline='ols',
+                       color_discrete_sequence=['#f39c12'])
+
+    # Combine into subplots
+    _fig_interactive = make_subplots(
+        rows=2, cols=2,
+        subplot_titles=('Income vs Charging Stations', 
+                        'Population Density vs Charging Stations',
+                        'Income vs Total Charging Points', 
+                        'Population Density vs Total Charging Points'),
+        vertical_spacing=0.12,
+        horizontal_spacing=0.10
+    )
+
+    # Add traces from fig1 with custom styling
+    for trace in _fig1.data:
+        if trace.mode == 'markers':
+            trace.marker.size = 10
+            trace.marker.opacity = 0.6
+            trace.marker.line = dict(width=1.5, color='white')
+            trace.hovertemplate = '<b>%{hovertext}</b><br>Income: €%{x:,.0f}<br>Stations: %{y}<extra></extra>'
+        _fig_interactive.add_trace(trace, row=1, col=1)
+
+    # Add traces from fig2 with custom styling
+    for trace in _fig2.data:
+        if trace.mode == 'markers':
+            trace.marker.size = 10
+            trace.marker.opacity = 0.6
+            trace.marker.line = dict(width=1.5, color='white')
+            trace.hovertemplate = '<b>%{hovertext}</b><br>Density: %{x:.1f} per km²<br>Stations: %{y}<extra></extra>'
+        _fig_interactive.add_trace(trace, row=1, col=2)
+
+    # Add traces from fig3 with custom styling
+    for trace in _fig3.data:
+        if trace.mode == 'markers':
+            trace.marker.size = 10
+            trace.marker.opacity = 0.6
+            trace.marker.line = dict(width=1.5, color='white')
+            trace.hovertemplate = '<b>%{hovertext}</b><br>Income: €%{x:,.0f}<br>Points: %{y}<extra></extra>'
+        _fig_interactive.add_trace(trace, row=2, col=1)
+
+    # Add traces from fig4 with custom styling
+    for trace in _fig4.data:
+        if trace.mode == 'markers':
+            trace.marker.size = 10
+            trace.marker.opacity = 0.6
+            trace.marker.line = dict(width=1.5, color='white')
+            trace.hovertemplate = '<b>%{hovertext}</b><br>Density: %{x:.1f} per km²<br>Points: %{y}<extra></extra>'
+        _fig_interactive.add_trace(trace, row=2, col=2)
+
+    # Update axes labels
+    _fig_interactive.update_xaxes(title_text="Average Income per Household (€)", row=1, col=1, showgrid=True, gridcolor='lightgray')
+    _fig_interactive.update_xaxes(title_text="Population Density (per km²)", row=1, col=2, showgrid=True, gridcolor='lightgray')
+    _fig_interactive.update_xaxes(title_text="Average Income per Household (€)", row=2, col=1, showgrid=True, gridcolor='lightgray')
+    _fig_interactive.update_xaxes(title_text="Population Density (per km²)", row=2, col=2, showgrid=True, gridcolor='lightgray')
+
+    _fig_interactive.update_yaxes(title_text="Number of Charging Stations", row=1, col=1, showgrid=True, gridcolor='lightgray')
+    _fig_interactive.update_yaxes(title_text="Number of Charging Stations", row=1, col=2, showgrid=True, gridcolor='lightgray')
+    _fig_interactive.update_yaxes(title_text="Total Charging Points", row=2, col=1, showgrid=True, gridcolor='lightgray')
+    _fig_interactive.update_yaxes(title_text="Total Charging Points", row=2, col=2, showgrid=True, gridcolor='lightgray')
+
+    # Update layout
+    _fig_interactive.update_layout(
+        title_font_size=18,
+        title_font_family='Arial Black',
+        showlegend=False,
+        height=900,
+        width=1200,
+        plot_bgcolor='white',
+        hovermode='closest'
+    )
+
+    mo.vstack([
+        mo.md("# Addressing Presentation Comments and Notes"),
+        _fig_interactive,
+    ])
+
+    return go, make_subplots, np, px, stats, trace
 
 
 @app.cell
