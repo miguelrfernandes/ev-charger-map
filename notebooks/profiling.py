@@ -14,6 +14,23 @@ def __():
 def __(mo):
     mo.md(
         r"""
+        EV Charging Points - Relation with Population Density and Income
+        ================================================================
+
+        - Do municipalities with more population density have more charging points?
+
+        - Are charging points more common in higher income municipalities?
+
+        - What municipalities should invest more in EV chargers?
+        """
+    )
+    return
+
+
+@app.cell
+def __(mo):
+    mo.md(
+        r"""
         3 datasets
 
             | Title | Description | Source |
@@ -39,13 +56,18 @@ def __(pd):
     # Donwload "https://www.ine.pt/ngt_server/attachfileu.jsp?look_parentBoui=739291160&att_display=n&att_download=y" and put it in a folder named 'data' in the repository root
 
     url_INE = "data/ERendimentoNLocal2023.xlsx"
-    df_INE = pd.read_excel(url_INE, sheet_name="Agregados_pub_2023", header=1)
+    df_INE_raw = pd.read_excel(url_INE, sheet_name="Agregados_pub_2023", header=1)
+    df_INE_raw
+    return df_INE_raw, url_INE
 
+
+@app.cell
+def __(df_INE_raw):
     #profile_INE = ProfileReport(df_INE, title="Profiling Report INE")
     #profile_INE.to_file("reports/profile_INE.html")
 
     # Filter
-    df_INE = df_INE[df_INE["Nível territorial"] == "Município"]
+    df_INE = df_INE_raw[df_INE_raw["Nível territorial"] == "Município"]
 
     # Rename Nível territorial to Concelho
     df_INE = df_INE.rename(columns={"Designação": "Concelho"})
@@ -53,7 +75,15 @@ def __(pd):
     # Only keep desired columns
     df_INE = df_INE[["Concelho", "Rendimento bruto declarado médio por agregado fiscal"]]
     df_INE
-    return df_INE, url_INE
+    return df_INE,
+
+
+@app.cell
+def __():
+    with open("data/ine_densidade_populacional.csv", "r", encoding="latin-1") as f:
+        output = f.read()
+    output
+    return f, output
 
 
 @app.cell
@@ -145,28 +175,45 @@ def __(pd):
     # Remove first 3 digits in Código territorial
     # df_INE_densidade["Código territorial"] = df_INE_densidade["Código territorial"].str[3:]
 
-    # Only keep desired columns
-    df_INE_densidade = df_INE_densidade[["Concelho", "Densidade_Populacional_km2"]]#, "Código territorial"]]
+    df_INE_densidade_display = df_INE_densidade.copy()
 
-    df_INE_densidade
-    return col, column_mapping, df_INE_densidade, url_INE_densidade
+    # Only keep desired columns
+    df_INE_densidade = df_INE_densidade[["Concelho", "Densidade_Populacional_km2"]]
+    df_INE_densidade_display
+    return (
+        col,
+        column_mapping,
+        df_INE_densidade,
+        df_INE_densidade_display,
+        url_INE_densidade,
+    )
 
 
 @app.cell
 def __(pd):
     url_EREDES = "https://e-redes.opendatasoft.com/api/explore/v2.1/catalog/datasets/postos_carregamento_ves/exports/csv?lang=pt&timezone=Europe%2FLisbon&use_labels=true&delimiter=%3B"
-    df_EREDES = pd.read_csv(url_EREDES, sep=";")
+    df_EREDES_raw = pd.read_csv(url_EREDES, sep=";")
 
-    #profile_EREDES = ProfileReport(df_EREDES, title="Profiling Report EREDES")
+    df_EREDES_raw
+    return df_EREDES_raw, url_EREDES
+
+
+@app.cell
+def __(ProfileReport, df_EREDES_raw):
+    profile_EREDES = ProfileReport(df_EREDES_raw, title="Profiling Report EREDES")
     #profile_EREDES.to_file("reports/profile_EREDES.html")
-    df_EREDES
+    return profile_EREDES,
+
+
+@app.cell
+def __(df_EREDES_raw):
     # Rename CodDistritoConcelho to Código territorial
-    df_EREDES = df_EREDES.rename(columns={"CodDistritoConcelho": "Código territorial"})
+    df_EREDES = df_EREDES_raw.rename(columns={"CodDistritoConcelho": "Código territorial"})
 
     # Only keep latest quarter
     df_EREDES[df_EREDES["Trimestre"]=="2025T3"]
     df_EREDES
-    return df_EREDES, url_EREDES
+    return df_EREDES,
 
 
 @app.cell
@@ -265,12 +312,12 @@ def __(plot_df, plt):
     for _i, _r in _df_density_plot.iterrows():
         _ax_density.plot([0, 1], [_r['rank_points'], _r['rank_density_adjusted']], 
                 'o-', linewidth=2, markersize=8, alpha=0.7)
-        
+
         # Add labels on the left
         _ax_density.text(-0.05, _r['rank_points'], 
                 f"{_r['Concelho']}: {_r['total_charging_points']:.2f} ({int(279 - _r['rank_points'])}º)", 
                 ha='right', va='center', fontsize=10)
-        
+
         # Add labels on the right
         _ax_density.text(1.05, _r['rank_density_adjusted'], 
                 f"{_r['Densidade_Populacional_km2']:.1f}/km² ({int(279 - _r['rank_density'])}º)", 
@@ -315,12 +362,12 @@ def __(plot_df):
     for idx, row in df_plot.iterrows():
         ax.plot([0, 1], [row['rank_points'], row['rank_income_adjusted']], 
                 'o-', linewidth=2, markersize=8, alpha=0.7)
-        
+
         # Add labels on the left
         ax.text(-0.05, row['rank_points'], 
                 f"{row['Concelho']}: {row['total_charging_points']} ({int(279 - row['rank_points'])}º)", 
                 ha='right', va='center', fontsize=10)
-        
+
         # Add labels on the right
         ax.text(1.05, row['rank_income_adjusted'], 
                 f"{row['Rendimento bruto declarado médio por agregado fiscal']}€ ({int(279 - row['rank_income'])}º)", 
@@ -344,7 +391,6 @@ def __(plot_df):
     #          fontsize=14, fontweight='bold', pad=20)
     plt.tight_layout()
     plt.show()
-
     return ax, df_plot, fig, idx, plt, row, top_n
 
 
@@ -378,6 +424,32 @@ def __(plot_df):
         in_density_not_points,
         in_income_not_points,
     )
+
+
+@app.cell
+def __(mo):
+    mo.md(
+        r"""
+        Conclusions
+        ===========
+        The data provided by INE, a Portuguese official institution whose focus evolves around data and statistics, is not computer processing friendly as it favours a Excel-power user layout that does not compute easily; includes unnecessary metadata; and its serialized using a non-global encoding (“latin-1”). Also, their datasets are not consistent in how the same information is captured (e.g., municipalities). Still, the data is mostly of decent quality in the sense that it includes complete and valid records.
+        The data used in this experiments has two major limitations:
+
+        - Not all datasets are in the same timeframe (year)
+        - One of the datasets (charging points) does not include all municipalities, hence the investigation was limited to those available
+
+        In this experiment we used the total number of charging points, but that could be biased towards municipalities with larger areas. In a future experiment we could consider metrics that take into account geographical or demographical dimension, e.g., charging points per km2 or per household.
+        The experiment seems to support the intuitive belief that more densely populated municipalities have more charging points. On the other hand, the relation between number of charging points and family income is not so direct, which might be unfortunate as these municipalities with higher income families are probably more likely to be renewing and upgrading their vehicle more regularly, and thus should be a priority to accelerate the transition to greener transportation. This relation is yet to be proven and could be subject of future work.
+        
+        With this work we listed a set of municipalities that could invest in new charging points using a heuristic that related the municipality position in both income and population density with the number of charging points. Under this heuristic Entrocamento is the only municipality present in both.
+        """
+    )
+    return
+
+
+@app.cell
+def __():
+    return
 
 
 if __name__ == "__main__":
