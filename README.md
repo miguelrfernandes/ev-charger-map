@@ -1,22 +1,14 @@
-# EV Charger Map Research Toolkit
+# EV Charging Points - Relation with Population Density and Income
 
-This repository documents the workflow for analysing EV charging infrastructure and demand in Lisbon/Portugal. It provides project context, dataset choices, integration strategy, and supporting scripts/specifications for a decision-support pipeline that highlights where additional chargers are needed.
+This project identifies the relationship between publicly available EV charging points, personal income, and population density across Portugal's mainland municipalities. We analyze 278 municipalities to answer:
 
-## Project Goals
+1. Do municipalities with higher population density have more charging points?
+2. Are charging points more common in higher income municipalities?
+3. Which municipalities should invest more in EV chargers?
 
-- Identify coverage gaps in existing EV charging infrastructure relative to population and mobility demand.
-- Correlate charger distribution with socio-economic and traffic indicators.
-- Build a reproducible data engineering workflow for integrating charger, demographic, and mobility datasets.
+**Key Findings:** There is a positive correlation between charging points and both population density and income. Municipalities like Porto, Lisboa, and Oeiras lead in charging infrastructure.
 
-## Key Research Questions
-
-1. **Coverage & gaps:** Which parishes/municipalities have high or low charger availability per capita or per EV?
-2. **Traffic demand:** Do areas with intense trip origins/destinations lack charging capacity?
-3. **Socio-economics:** How do population density, EV adoption, and income correlate with charger locations? Are communities underserved?
-4. **Charger characteristics:** Are chargers under/over-utilised relative to capacity and nearby demand? Are there patterns by charger type?
-5. **Data quality:** What issues (missing fields, duplicates, inconsistent geocodes) could affect the analysis, and how will we resolve them?
-
-## How to run
+## How to Run
 
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -25,94 +17,91 @@ source .venv/bin/activate
 marimo edit
 ```
 
-## Dataset Overview
+## Datasets
 
-Source
-What
-Link
-Notes
-INE
-População residente (N.º) por Local de residência à data dos Censos [2021] (NUTS - 2013), Sexo, Grupo etário e Nacionalidade
-https://tabulador.ine.pt/indicador/?id=0011627
-Refers to 2021
-E-REDES
-Location by region of connection points for Electric Vehicle Charging Stations. Information on the number of connection points for charging stations and maximum admissible connection power.
-https://e-redes.opendatasoft.com/explore/dataset/postos_carregamento_ves/information/
+| Source  | Description                           | Year    | Link                                                                                                             |
+| ------- | ------------------------------------- | ------- | ---------------------------------------------------------------------------------------------------------------- |
+| INE     | Average income per municipality       | 2023    | [Download](https://www.ine.pt/ngt_server/attachfileu.jsp?look_parentBoui=739291160&att_display=n&att_download=y) |
+| INE     | Population density per municipality   | 2024    | [Download](https://dados.gov.pt/pt/datasets/densidade-populacional-n-o-km2-7/)                                   |
+| E-REDES | EV charging station connection points | Q3 2025 | [Explore](https://e-redes.opendatasoft.com/explore/dataset/postos_carregamento_ves/information/)                 |
 
-Data from 2024
-INE
-Income per municipality
-https://www.ine.pt/ngt_server/attachfileu.jsp?look_parentBoui=739291160&att_display=n&att_download=y
-Consider year 2023
+**Note:** Azores and Madeira municipalities are excluded due to incomplete E-REDES data.
 
-| Dataset                                            | Provider                       | Format                  | Approx Size                          | Purpose                                                   |
-| -------------------------------------------------- | ------------------------------ | ----------------------- | ------------------------------------ | --------------------------------------------------------- |
-| Lisboa/Mobi.E charging stations                    | CM Lisboa ArcGIS FeatureServer | GeoJSON/Feature service | ~160 POIs, 10+ attrs                 | Base layer for Lisbon chargers (location, sockets, usage) |
-| E-Redes national charging points                   | e-redes.opendatasoft.com       | JSON/CSV                | 35k+ chargers, 20+ attrs             | Cross-validate Lisbon layer, extend to national coverage  |
-| Mobility/traffic flows (World Data League or xMap) | Various                        | CSV/Parquet             | 200m grid counts, time-series        | Demand proxy for charging needs                           |
-| Population density indicator                       | INE via dados.gov.pt           | JSON API                | National coverage per NUTS/sex       | Provides per-capita normalisation factors                 |
-| (Optional) Socio-demographic indicators            | INE or dados.cm-lisboa.pt      | CSV                     | Parish-level population, EV adoption | Normalise charger counts by population/EV adoption        |
+## Data Processing
 
-Set up the environment with uv (installs dependencies from `pyproject.toml` and exposes console scripts):
+### Income Dataset
 
-## Other Resources to Explore
+- **Source:** INE Excel file with municipality-level gross income
+- **Preprocessing:** Extract municipality name and average gross family income
+- **Output:** 308 municipalities
 
-| Dataset                                            | Provider                       | Format                  | Approx Size                          | Purpose                                                   |
-| -------------------------------------------------- | ------------------------------ | ----------------------- | ------------------------------------ | --------------------------------------------------------- |
-| Lisboa/Mobi.E charging stations                    | CM Lisboa ArcGIS FeatureServer | GeoJSON/Feature service | ~160 POIs, 10+ attrs                 | Base layer for Lisbon chargers (location, sockets, usage) |
-| E-Redes national charging points                   | e-redes.opendatasoft.com       | JSON/CSV                | 35k+ chargers, 20+ attrs             | Cross-validate Lisbon layer, extend to national coverage  |
-| Mobility/traffic flows (World Data League or xMap) | Various                        | CSV/Parquet             | 200m grid counts, time-series        | Demand proxy for charging needs                           |
-| Population density indicator                       | INE via dados.gov.pt           | JSON API                | National coverage per NUTS/sex       | Provides per-capita normalisation factors                 |
-| (Optional) Socio-demographic indicators            | INE or dados.cm-lisboa.pt      | CSV                     | Parish-level population, EV adoption | Normalise charger counts by population/EV adoption        |
+### Population Density Dataset
 
-| Dataset                                           | Landing Page                                                                                                                                        | Relevance / Notes                                                                                                                                                                                                           |
-| ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Condicionamentos de Trânsito (ativos e previstos) | https://lisboaaberta.cm-lisboa.pt/index.php/pt/dados/conjuntos-de-dados/item/82-condicionamentos-de-trânsito-ativos-e-previstos-na-cidade-de-Lisboa | Live/near-term road works & closures; useful to contextualise temporary charger access constraints or explain anomalous traffic counts. Expect frequent updates and polygonal/line geometries describing affected segments. |
-| Condicionamentos de Trânsito (histórico)          | https://lisboaaberta.cm-lisboa.pt/index.php/pt/dados/conjuntos-de-dados/item/83-condicionamentos-de-trânsito-histórico                              | Historical log of closures enables time-series correlation between infrastructure work and charger utilisation or mobility demand. Watch for large file sizes and date-range filters to keep downloads manageable.          |
-| Áreas reguladas de estacionamento na via pública  | https://lisboaaberta.cm-lisboa.pt/index.php/pt/dados/conjuntos-de-dados/item/91-áreas-reguladas-de-estacionamento-na-via-pública                    | Spatial polygons of regulated parking zones (EMEL). Supports analysing charger coverage vs. paid-parking supply and identifying resident-priority areas lacking chargers. Requires harmonising zone IDs with parish codes.  |
-| Declive Longitudinal da Rede Viária               | https://lisboaaberta.cm-lisboa.pt/index.php/pt/dados/conjuntos-de-dados/item/97-declive-longitudinal-da-rede-viária                                 | Road-network slope attributes (percent grade). Useful when assessing energy consumption patterns or siting fast chargers on steep corridors. Geometry-heavy; ensure CRS alignment with charger points.                      |
-| Indicadores de Tráfego                            | https://lisboaaberta.cm-lisboa.pt/index.php/pt/dados/conjuntos-de-dados/item/50-22-indicadores-de-tráfego                                           | Aggregated traffic indicators (counts, speeds) across monitored segments. Primary candidate for demand-side integration when World Data League/xMap data are unavailable. Validate temporal coverage and sensor metadata.   |
+- **Source:** INE CSV with population density (persons/km²)
+- **Preprocessing:** Skip metadata rows, filter for 2024, extract municipalities using 7-digit NUTS codes
+- **Encoding:** latin-1
+- **Output:** 308 municipalities
 
-## 2. Dataset Selection & Description
+### Charging Points Dataset
 
-### 2.1 Lisboa / Mobi.E Charging Stations (ArcGIS FeatureServer)
+- **Source:** E-REDES with charging stations and points per municipality
+- **Preprocessing:**
+  - Fix casing issues (e.g., "Castro daire" → "Castro Daire")
+  - Fix encoding issues
+  - Aggregate by municipality using sum
+- **Output:** 278 municipalities (mainland only)
 
-- **Endpoint:** `https://services.arcgis.com/1dSrzEWVQn5kHHyK/arcgis/rest/services/POITransportes/FeatureServer/2`
-- **Format:** GeoJSON via ArcGIS REST (structured, spatial)
-- **Size:** ~160 features (layer dedicated to Lisboa Mobi.E stations inside POITransportes service with ObjectID, COD_SIG, DESCRICAO, MORADA, TOMADAS, IDTIPO, geometry)
-- **Key attributes:** station code, station name, address, number of sockets, usage type (public/private), charger type, latitude/longitude geometry.
-- **Missing/incomplete:** Some records lack socket counts or have null addresses; coordinate precision varies.
-- **Quality concerns:** Inconsistent casing/accents in `MORADA`/`FREGUESIA`, station types encoded as numeric codes, potential duplicates with national dataset.
+### Integrated Dataset
 
-### 2.2 E-Redes National Charging Points (Opendatasoft)
+All datasets merged on municipality name, resulting in 278 records with:
 
-- **Endpoint:** `https://e-redes.opendatasoft.com/api/records/1.0/search/?dataset=postos_carregamento_ves&rows=5000&start=`
-- **Format:** JSON/CSV (tabular, spatial fields `geo_point_2d`, `geo_shape`)
-- **Size:** ~35,849 records, ~25 columns (district, municipality, parish, power, connectors).
-- **Key attributes:** `id`, `designacao`, `municipio`, `freguesia`, `potencia_instalada`, `n_pontos_carregamento`, `estado`, `data_instalacao`.
-- **Missing/incomplete:** Some rows lack `potencia_instalada` or `geo_point_2d`; parish names sometimes blank.
-- **Quality concerns:** Text accents vs. ASCII, municipality naming mismatches with Lisbon dataset, duplicates near same coordinates with slight name variations.
+- Municipality name
+- Average gross family income
+- Population density
+- Number of charging stations
+- Number of charging points
 
-### 2.3 Mobility / Traffic Flows (World Data League Lisbon Challenge)
+## Key Findings
 
-- **Format:** CSV/Parquet per 15-min interval grid (200 m x 200 m)
-- **Size:** Tens of millions of rows; columns include `grid_id`, `timestamp`, `devices_in`, `devices_out`.
-- **Key attributes:** grid cell geometry, counts of entering/exiting devices, aggregated device IDs.
-- **Missing/incomplete:** Some intervals missing counts; timestamps in UTC; grid metadata required for spatial join.
-- **Quality concerns:** Need to respect privacy aggregation; ensure consistent CRS when mapping to parishes.
+### Charging Points vs Population Density
 
-### 2.4 Optional Socio-Demographic Indicators (INE/Dados CM Lisboa)
+- 6 of top 10 municipalities by charging points are also in top 10 by population density
+- Strong positive correlation
 
-- **Format:** CSV (parish-level population, EV ownership, income proxies)
-- **Usage:** Provide denominators for per-capita metrics and equity analysis.
+### Charging Points vs Income
 
-### 2.6 Population Density (INE via dados.gov.pt)
+- 5 of top 10 municipalities by charging points are also in top 10 by income
+- Moderate correlation
 
-- **Landing page:** https://dados.gov.pt/pt/datasets/densidade-populacional-n-o-km2-7/
-- **API resource:** `https://www.ine.pt/ine/json_indicador/pindica.jsp?op=2&varcd=0012280&lang=PT`
-- **Format:** JSON indicator series (nested arrays with NUTS 2024 codes, sex, value, year)
-- **Size:** National coverage with breakdown by sex and territorial unit (NUTS I/II/III); each request returns dozens of records per region/sex/time slice.
-- **Key attributes:** `geodsg` (territorial description), `geocod` (NUTS code), `Sexo`, `Valor`, `Anos`, indicator metadata.
-- **Usage:** Normalise charger counts per km² or per resident by joining NUTS regions to municipalities/parishes; feed population density into gap analysis and equity scoring.
-- **Missing/incomplete:** Some indicators may contain placeholder values (e.g., `"Valor": "x"` for suppressed data) or aggregated codes lacking finer geography; requires filtering to desired geography (NUTS III covering Lisboa Metropolitana) and casting string numerics to floats.
-- **Quality concerns:** JSON arrays embed metadata headers followed by observations; need parsing helpers. Ensure up-to-date NUTS codes align with DICOFRE lookups before joins.
+### Municipalities to Prioritize
+
+**In both income AND density top 30, but NOT in charging points top 30:**
+
+- Entroncamento
+
+**In income top 30 only (14 municipalities):**
+Alcochete, Arruda dos Vinhos, Castro Verde, Condeixa-a-Nova, Entroncamento, Figueira da Foz, Guarda, Palmela, Santiago do Cacém, Sesimbra, Sines, Vila Nova da Barquinha, Vila Real, Évora
+
+**In density top 30 only (12 municipalities):**
+Entroncamento, Espinho, Moita, Paços de Ferreira, Póvoa de Varzim, São João da Madeira, Trofa, Valongo, Vila do Conde, Vila Nova de Famalicão, Vizela, Ílhavo
+
+## Tools Used
+
+- **Marimo:** Interactive Python notebooks
+- **Pandas:** Data manipulation
+- **ydata_profiling:** Automated data profiling
+- **Matplotlib:** Data visualization
+- **Claude.ai:** Code generation assistance
+
+## Limitations
+
+1. Datasets from different years (2023-2025)
+2. E-REDES data excludes Azores and Madeira
+3. Analysis uses absolute charging point counts (not normalized by area or population)
+4. INE data formatting is not machine-friendly (Excel layouts, latin-1 encoding, inconsistent municipality identifiers)
+
+## Future Work
+
+- Normalize metrics (e.g., charging points per km² or per household)
+- Investigate correlation between income and EV adoption rates
+- Include temporal analysis as newer data becomes available
