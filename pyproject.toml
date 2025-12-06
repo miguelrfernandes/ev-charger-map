@@ -1,5 +1,5 @@
 [project]
-name = "ev-charger-map"
+name = "cmu-teamwork"
 version = "0.1.0"
 description = "Data acquisition and integration toolkit for EV charger analysis"
 readme = "README.md"
